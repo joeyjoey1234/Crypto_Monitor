@@ -13,7 +13,8 @@ data class CryptoAsset(
     val symbol: String,
     val displayName: String,
     val chain: String,
-    val decimals: Int
+    val decimals: Int,
+    val usesNativeBalance: Boolean = true
 )
 
 data class PricePoint(
@@ -61,5 +62,7 @@ val DefaultAssets = listOf(
     CryptoAsset("ethereum", "ETH", "Ethereum", "ethereum", 18),
     CryptoAsset("solana", "SOL", "Solana", "solana", 9),
     CryptoAsset("dogecoin", "DOGE", "Dogecoin", "dogecoin", 8),
-    CryptoAsset("cardano", "ADA", "Cardano", "cardano", 6)
+    CryptoAsset("cardano", "ADA", "Cardano", "cardano", 6),
+    CryptoAsset("venice-token", "VVV", "Venice Token", "ethereum", 18, usesNativeBalance = false),
+    CryptoAsset("diem", "DIEM", "Diem", "ethereum", 18, usesNativeBalance = false)
 )

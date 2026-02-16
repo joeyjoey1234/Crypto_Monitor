@@ -28,6 +28,8 @@ class CryptoRepository(
         assets: List<CryptoAsset>,
         walletAddresses: WalletAddresses
     ): List<AssetAnalysis> = coroutineScope {
+        if (assets.isEmpty()) return@coroutineScope emptyList()
+
         val marketData = fetchMarketsWithRateLimitRetry(assets)
 
         assets.map { asset ->
@@ -85,6 +87,8 @@ class CryptoRepository(
     }
 
     private suspend fun fetchBalance(asset: CryptoAsset, walletAddresses: WalletAddresses): Double? {
+        if (!asset.usesNativeBalance) return null
+
         val walletAddress = walletAddresses.forChain(asset.chain) ?: return null
 
         val response = runCatching {

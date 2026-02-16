@@ -6,6 +6,7 @@ Android app MVP for monitoring crypto prices, charting recent history, reading w
 
 - Jetpack Compose UI with per-asset cards and price chart
 - Single wallet input field with auto-chain detection (BTC/ETH/SOL/DOGE/ADA)
+- Includes additional tracked Ethereum tokens such as VVV and DIEM
 - Market data from CoinGecko public API
 - Wallet address balance lookup via Blockchair public API
 - 5 signal algorithms per asset:

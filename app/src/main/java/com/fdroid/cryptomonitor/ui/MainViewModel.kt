@@ -94,12 +94,24 @@ class MainViewModel(
         }
         lastRefreshAtMillis = now
 
+        val trackedAssets = DefaultAssets.filter { _uiState.value.walletAddresses.forChain(it.chain) != null }
+        if (trackedAssets.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    analyses = emptyList(),
+                    error = null
+                )
+            }
+            return
+        }
+
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val result = runCatching {
                 repository.analyzeAssets(
-                    assets = DefaultAssets,
+                    assets = trackedAssets,
                     walletAddresses = _uiState.value.walletAddresses
                 )
             }

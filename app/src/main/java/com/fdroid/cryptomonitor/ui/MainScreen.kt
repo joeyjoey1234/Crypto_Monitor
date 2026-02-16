@@ -155,6 +155,11 @@ private fun DashboardContent(
                 addressRows.forEach { (symbol, address) ->
                     Text("$symbol: $address", style = MaterialTheme.typography.bodySmall)
                 }
+            } else if (!state.isLoading) {
+                Text(
+                    "Add a wallet address to start monitoring and charting that asset.",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
         item {
