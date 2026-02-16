@@ -3,7 +3,6 @@ package com.fdroid.cryptomonitor.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.fdroid.cryptomonitor.data.model.DefaultAssets
 import com.fdroid.cryptomonitor.data.model.WalletAddresses
 import com.fdroid.cryptomonitor.data.repo.CryptoRepository
 import com.fdroid.cryptomonitor.domain.WalletAddressDetector
@@ -94,22 +93,11 @@ class MainViewModel(
         }
         lastRefreshAtMillis = now
 
-        val trackedAssets = DefaultAssets.filter { _uiState.value.walletAddresses.forChain(it.chain) != null }
-        if (trackedAssets.isEmpty()) {
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    analyses = emptyList(),
-                    error = null
-                )
-            }
-            return
-        }
-
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val result = runCatching {
+                val trackedAssets = repository.resolveTrackedAssets(_uiState.value.walletAddresses)
                 repository.analyzeAssets(
                     assets = trackedAssets,
                     walletAddresses = _uiState.value.walletAddresses
@@ -118,10 +106,17 @@ class MainViewModel(
 
             result.onSuccess { analyses ->
                 val ownedAnalyses = analyses.filter { (it.balance ?: 0.0) > 0.0 }
+                val totalPortfolioUsd = ownedAnalyses.sumOf { (it.balance ?: 0.0) * it.currentPriceUsd }
+                val dayChangeUsd = ownedAnalyses.sumOf { analysis ->
+                    val positionUsd = (analysis.balance ?: 0.0) * analysis.currentPriceUsd
+                    positionUsd * ((analysis.priceChange24hPct ?: 0.0) / 100.0)
+                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         analyses = ownedAnalyses,
+                        totalPortfolioUsd = totalPortfolioUsd,
+                        dayChangeUsd = dayChangeUsd,
                         lastUpdated = Instant.now(),
                         error = null
                     )
@@ -131,6 +126,9 @@ class MainViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        analyses = emptyList(),
+                        totalPortfolioUsd = 0.0,
+                        dayChangeUsd = 0.0,
                         error = mapRefreshError(throwable)
                     )
                 }

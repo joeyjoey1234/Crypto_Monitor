@@ -3,7 +3,6 @@ package com.fdroid.cryptomonitor.scheduling
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.fdroid.cryptomonitor.data.model.DefaultAssets
 import com.fdroid.cryptomonitor.data.model.TradeAction
 import com.fdroid.cryptomonitor.data.remote.ApiFactory
 import com.fdroid.cryptomonitor.data.repo.CryptoRepository
@@ -26,7 +25,7 @@ class SignalCheckWorker(
         return runCatching {
             val prefs = UserPrefsRepository(applicationContext)
             val walletAddresses = prefs.walletAddresses.first()
-            val trackedAssets = DefaultAssets.filter { walletAddresses.forChain(it.chain) != null }
+            val trackedAssets = repository.resolveTrackedAssets(walletAddresses)
             if (trackedAssets.isEmpty()) return@runCatching
 
             val analyses = repository

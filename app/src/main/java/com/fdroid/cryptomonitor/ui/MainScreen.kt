@@ -36,8 +36,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fdroid.cryptomonitor.ui.components.AssetCard
 import com.fdroid.cryptomonitor.update.ApkUpdateInstaller
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,6 +112,8 @@ private fun DashboardContent(
     onAddAddress: () -> Unit,
     onRefresh: () -> Unit
 ) {
+    val currency = NumberFormat.getCurrencyInstance(Locale.US)
+
     LazyColumn(
         modifier = modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -122,7 +126,7 @@ private fun DashboardContent(
                 label = { Text("Wallet Address") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 modifier = Modifier.fillMaxWidth(),
-                supportingText = { Text("Paste one address. App auto-detects network type.") }
+                supportingText = { Text("Paste one address. EVM (0x...) is used for Ethereum and Base.") }
             )
         }
         item {
@@ -139,6 +143,24 @@ private fun DashboardContent(
         item {
             state.walletStatusMessage?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        item {
+            if (state.analyses.isNotEmpty()) {
+                val changeColor = if (state.dayChangeUsd >= 0.0) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                }
+                Text(
+                    "Portfolio value: ${currency.format(state.totalPortfolioUsd)}",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    "24h change: ${currency.format(state.dayChangeUsd)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = changeColor
+                )
             }
         }
         item {

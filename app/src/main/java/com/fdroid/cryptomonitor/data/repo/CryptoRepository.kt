@@ -2,16 +2,18 @@ package com.fdroid.cryptomonitor.data.repo
 
 import com.fdroid.cryptomonitor.data.model.AssetAnalysis
 import com.fdroid.cryptomonitor.data.model.CryptoAsset
+import com.fdroid.cryptomonitor.data.model.DefaultAssets
 import com.fdroid.cryptomonitor.data.model.PricePoint
 import com.fdroid.cryptomonitor.data.model.TradeAction
 import com.fdroid.cryptomonitor.data.model.WalletAddresses
 import com.fdroid.cryptomonitor.data.remote.BlockchairApi
 import com.fdroid.cryptomonitor.data.remote.CoinGeckoApi
+import com.fdroid.cryptomonitor.data.remote.CoinListItemDto
 import com.fdroid.cryptomonitor.data.remote.MarketCoinDto
 import com.fdroid.cryptomonitor.domain.SignalEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -37,6 +39,65 @@ class CryptoRepository(
     private val httpClient = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
+    private var baseContractCoinMapCache: Map<String, CoinListItemDto> = emptyMap()
+    private var baseContractCoinMapFetchedAtMillis: Long = 0L
+
+    private var baseTokenHoldingsCache: CachedBaseHoldings? = null
+
+    suspend fun resolveTrackedAssets(walletAddresses: WalletAddresses): List<CryptoAsset> {
+        val assets = mutableListOf<CryptoAsset>()
+
+        if (walletAddresses.forChain("bitcoin") != null) {
+            assets += DefaultAssets.first { it.chain == "bitcoin" }
+        }
+        if (walletAddresses.forChain("ethereum") != null) {
+            assets += DefaultAssets.first { it.chain == "ethereum" }
+        }
+        if (walletAddresses.forChain("solana") != null) {
+            assets += DefaultAssets.first { it.chain == "solana" }
+        }
+        if (walletAddresses.forChain("dogecoin") != null) {
+            assets += DefaultAssets.first { it.chain == "dogecoin" }
+        }
+        if (walletAddresses.forChain("cardano") != null) {
+            assets += DefaultAssets.first { it.chain == "cardano" }
+        }
+
+        val baseAddress = walletAddresses.forChain("base")
+        if (baseAddress != null) {
+            assets += CryptoAsset(
+                id = "base-native-eth",
+                marketId = "ethereum",
+                symbol = "ETH",
+                displayName = "Base ETH",
+                chain = "base",
+                decimals = 18,
+                usesNativeBalance = true
+            )
+
+            val holdings = fetchBaseTokenHoldings(baseAddress)
+                .filter { it.amount > 0.0 }
+            if (holdings.isNotEmpty()) {
+                val contractMap = fetchBaseContractCoinMap()
+                holdings.forEach { holding ->
+                    val coin = contractMap[holding.contract.lowercase()] ?: return@forEach
+                    assets += CryptoAsset(
+                        id = "base:${holding.contract.lowercase()}",
+                        marketId = coin.id,
+                        symbol = coin.symbol.uppercase(),
+                        displayName = coin.name,
+                        chain = "base",
+                        decimals = holding.decimals,
+                        usesNativeBalance = false,
+                        tokenContract = holding.contract.lowercase()
+                    )
+                }
+            }
+        }
+
+        return assets.distinctBy { it.id }
+    }
+
     suspend fun analyzeAssets(
         assets: List<CryptoAsset>,
         walletAddresses: WalletAddresses
@@ -53,7 +114,7 @@ class CryptoRepository(
         val baseTokenBalances = baseAddress?.let { fetchBaseTokenBalances(it) }.orEmpty()
 
         assets.map { asset ->
-            val market = marketData[asset.id]
+            val market = marketData[asset.marketId]
             val history = market?.let { historyFromSparkline(it) } ?: emptyList()
             val (signals, finalAction) = signalEngine.analyze(history)
 
@@ -68,6 +129,7 @@ class CryptoRepository(
             AssetAnalysis(
                 asset = asset,
                 currentPriceUsd = market?.current_price ?: 0.0,
+                priceChange24hPct = market?.price_change_percentage_24h,
                 balance = balance,
                 history = history,
                 algorithmSignals = signals,
@@ -77,7 +139,9 @@ class CryptoRepository(
     }
 
     private suspend fun fetchMarketsWithRateLimitRetry(assets: List<CryptoAsset>): Map<String, MarketCoinDto> {
-        val ids = assets.joinToString(",") { it.id }
+        val ids = assets.map { it.marketId }.distinct().joinToString(",")
+        if (ids.isBlank()) return emptyMap()
+
         var lastError: Throwable? = null
         repeat(3) { attempt ->
             try {
@@ -119,10 +183,7 @@ class CryptoRepository(
     ): Double? {
         when (asset.chain) {
             "ethereum" -> {
-                if (asset.tokenContract != null) {
-                    // Token-by-contract lookup for Ethereum can be added if needed.
-                    return null
-                }
+                if (asset.tokenContract != null) return null
                 return ethNativeBalance
             }
 
@@ -170,31 +231,77 @@ class CryptoRepository(
         }.getOrNull()
     }
 
-    private suspend fun fetchBaseTokenBalances(walletAddress: String): Map<String, Double> = withContext(Dispatchers.IO) {
+    private suspend fun fetchBaseTokenBalances(walletAddress: String): Map<String, Double> {
+        return fetchBaseTokenHoldings(walletAddress)
+            .associate { it.contract.lowercase() to it.amount }
+    }
+
+    private suspend fun fetchBaseTokenHoldings(walletAddress: String): List<BaseTokenHolding> = withContext(Dispatchers.IO) {
+        val cache = baseTokenHoldingsCache
+        val now = System.currentTimeMillis()
+        if (cache != null && cache.address.equals(walletAddress, ignoreCase = true) && now - cache.fetchedAtMillis < 60_000L) {
+            return@withContext cache.holdings
+        }
+
         val request = Request.Builder()
             .url("https://base.blockscout.com/api/v2/addresses/$walletAddress/token-balances")
             .get()
             .build()
 
-        runCatching {
+        val holdings = runCatching {
             httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@use emptyMap()
+                if (!response.isSuccessful) return@use emptyList()
                 val body = response.body?.string().orEmpty()
                 val root = json.parseToJsonElement(body).jsonArray
 
-                val result = linkedMapOf<String, Double>()
-                root.forEach { entry ->
+                root.mapNotNull { entry ->
                     val obj = entry.jsonObject
-                    val tokenObj = obj["token"]?.jsonObject ?: return@forEach
-                    val contract = tokenObj["address_hash"]?.jsonPrimitive?.content?.lowercase() ?: return@forEach
+                    val tokenObj = obj["token"]?.jsonObject ?: return@mapNotNull null
+                    val contract = tokenObj["address_hash"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                    val symbol = tokenObj["symbol"]?.jsonPrimitive?.content.orEmpty()
+                    val name = tokenObj["name"]?.jsonPrimitive?.content.orEmpty()
                     val decimals = tokenObj["decimals"]?.jsonPrimitive?.content?.toIntOrNull() ?: 18
-                    val raw = obj["value"]?.jsonPrimitive?.content ?: return@forEach
+                    val raw = obj["value"]?.jsonPrimitive?.content ?: return@mapNotNull null
                     val amount = decimalAmount(raw, decimals)
-                    result[contract] = amount
+                    BaseTokenHolding(
+                        contract = contract.lowercase(),
+                        symbol = symbol,
+                        name = name,
+                        decimals = decimals,
+                        amount = amount
+                    )
                 }
-                result
             }
+        }.getOrDefault(emptyList())
+
+        baseTokenHoldingsCache = CachedBaseHoldings(
+            address = walletAddress,
+            fetchedAtMillis = now,
+            holdings = holdings
+        )
+        holdings
+    }
+
+    private suspend fun fetchBaseContractCoinMap(): Map<String, CoinListItemDto> {
+        val now = System.currentTimeMillis()
+        if (baseContractCoinMapCache.isNotEmpty() && now - baseContractCoinMapFetchedAtMillis < 24 * 60 * 60 * 1000L) {
+            return baseContractCoinMapCache
+        }
+
+        val map = runCatching {
+            marketApi.getCoinList(includePlatform = true)
+                .mapNotNull { coin ->
+                    val contract = coin.platforms?.get("base")?.trim().orEmpty()
+                    if (contract.isBlank()) null else contract.lowercase() to coin
+                }
+                .toMap()
         }.getOrDefault(emptyMap())
+
+        if (map.isNotEmpty()) {
+            baseContractCoinMapCache = map
+            baseContractCoinMapFetchedAtMillis = now
+        }
+        return baseContractCoinMapCache
     }
 
     private fun hexToAmount(hex: String, decimals: Int): Double {
@@ -206,4 +313,18 @@ class CryptoRepository(
     private fun decimalAmount(raw: String, decimals: Int): Double {
         return BigDecimal(raw).movePointLeft(decimals).toDouble()
     }
+
+    private data class BaseTokenHolding(
+        val contract: String,
+        val symbol: String,
+        val name: String,
+        val decimals: Int,
+        val amount: Double
+    )
+
+    private data class CachedBaseHoldings(
+        val address: String,
+        val fetchedAtMillis: Long,
+        val holdings: List<BaseTokenHolding>
+    )
 }

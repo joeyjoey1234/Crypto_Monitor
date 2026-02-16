@@ -11,6 +11,8 @@ data class MainUiState(
     val walletInput: String = "",
     val walletStatusMessage: String? = null,
     val analyses: List<AssetAnalysis> = emptyList(),
+    val totalPortfolioUsd: Double = 0.0,
+    val dayChangeUsd: Double = 0.0,
     val lastUpdated: Instant? = null,
     val error: String? = null,
     val isCheckingUpdate: Boolean = false,

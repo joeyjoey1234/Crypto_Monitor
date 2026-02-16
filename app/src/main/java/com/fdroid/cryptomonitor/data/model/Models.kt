@@ -10,6 +10,7 @@ enum class TradeAction {
 
 data class CryptoAsset(
     val id: String,
+    val marketId: String = id,
     val symbol: String,
     val displayName: String,
     val chain: String,
@@ -32,6 +33,7 @@ data class AlgorithmSignal(
 data class AssetAnalysis(
     val asset: CryptoAsset,
     val currentPriceUsd: Double,
+    val priceChange24hPct: Double?,
     val balance: Double?,
     val history: List<PricePoint>,
     val algorithmSignals: List<AlgorithmSignal>,
@@ -61,27 +63,9 @@ data class WalletAddresses(
 }
 
 val DefaultAssets = listOf(
-    CryptoAsset("bitcoin", "BTC", "Bitcoin", "bitcoin", 8),
-    CryptoAsset("ethereum", "ETH", "Ethereum", "ethereum", 18),
-    CryptoAsset("solana", "SOL", "Solana", "solana", 9),
-    CryptoAsset("dogecoin", "DOGE", "Dogecoin", "dogecoin", 8),
-    CryptoAsset("cardano", "ADA", "Cardano", "cardano", 6),
-    CryptoAsset(
-        id = "venice-token",
-        symbol = "VVV",
-        displayName = "Venice Token",
-        chain = "base",
-        decimals = 18,
-        usesNativeBalance = false,
-        tokenContract = "0xacfe6019ed1a7dc6f7b508c02d1b04ec88cc21bf"
-    ),
-    CryptoAsset(
-        id = "diem",
-        symbol = "DIEM",
-        displayName = "Diem",
-        chain = "base",
-        decimals = 18,
-        usesNativeBalance = false,
-        tokenContract = "0xf4d97f2da56e8c3098f3a8d538db630a2606a024"
-    )
+    CryptoAsset(id = "bitcoin", symbol = "BTC", displayName = "Bitcoin", chain = "bitcoin", decimals = 8),
+    CryptoAsset(id = "ethereum", symbol = "ETH", displayName = "Ethereum", chain = "ethereum", decimals = 18),
+    CryptoAsset(id = "solana", symbol = "SOL", displayName = "Solana", chain = "solana", decimals = 9),
+    CryptoAsset(id = "dogecoin", symbol = "DOGE", displayName = "Dogecoin", chain = "dogecoin", decimals = 8),
+    CryptoAsset(id = "cardano", symbol = "ADA", displayName = "Cardano", chain = "cardano", decimals = 6)
 )

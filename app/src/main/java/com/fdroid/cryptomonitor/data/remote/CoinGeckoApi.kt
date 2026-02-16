@@ -21,6 +21,11 @@ interface CoinGeckoApi {
         @Query("days") days: Int = 7,
         @Query("interval") interval: String = "hourly"
     ): MarketChartDto
+
+    @GET("api/v3/coins/list")
+    suspend fun getCoinList(
+        @Query("include_platform") includePlatform: Boolean = true
+    ): List<CoinListItemDto>
 }
 
 data class MarketCoinDto(
@@ -28,11 +33,19 @@ data class MarketCoinDto(
     val symbol: String,
     val name: String,
     val current_price: Double,
+    val price_change_percentage_24h: Double?,
     val sparkline_in_7d: SparklineDto?
 )
 
 data class SparklineDto(
     val price: List<Double>
+)
+
+data class CoinListItemDto(
+    val id: String,
+    val symbol: String,
+    val name: String,
+    val platforms: Map<String, String>?
 )
 
 data class MarketChartDto(

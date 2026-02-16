@@ -51,6 +51,15 @@ fun AssetCard(
                         text = "Price: ${currency.format(analysis.currentPriceUsd)}",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    analysis.priceChange24hPct?.let { change ->
+                        val sign = if (change >= 0) "+" else ""
+                        val changeColor = if (change >= 0) Color(0xFF0B8A3D) else Color(0xFFB71C1C)
+                        Text(
+                            text = "24h: $sign${"%.2f".format(change)}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = changeColor
+                        )
+                    }
                     analysis.balance?.let { balance ->
                         Text(
                             text = "Wallet balance: ${"%.6f".format(balance)} ${analysis.asset.symbol}",

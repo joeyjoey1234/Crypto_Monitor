@@ -6,6 +6,7 @@ import com.fdroid.cryptomonitor.data.remote.BlockchairAddressContainer
 import com.fdroid.cryptomonitor.data.remote.BlockchairAddressInfo
 import com.fdroid.cryptomonitor.data.remote.BlockchairApi
 import com.fdroid.cryptomonitor.data.remote.BlockchairResponse
+import com.fdroid.cryptomonitor.data.remote.CoinListItemDto
 import com.fdroid.cryptomonitor.data.remote.CoinGeckoApi
 import com.fdroid.cryptomonitor.data.remote.MarketChartDto
 import com.fdroid.cryptomonitor.data.remote.MarketCoinDto
@@ -29,8 +30,8 @@ class CryptoRepositoryTest {
         val repository = CryptoRepository(marketApi, walletApi, SignalEngine())
 
         val assets = listOf(
-            CryptoAsset("bitcoin", "BTC", "Bitcoin", "bitcoin", 8),
-            CryptoAsset("solana", "SOL", "Solana", "solana", 9)
+            CryptoAsset(id = "bitcoin", symbol = "BTC", displayName = "Bitcoin", chain = "bitcoin", decimals = 8),
+            CryptoAsset(id = "solana", symbol = "SOL", displayName = "Solana", chain = "solana", decimals = 9)
         )
 
         val analyses = repository.analyzeAssets(
@@ -58,6 +59,7 @@ class CryptoRepositoryTest {
                     symbol = id.take(3),
                     name = id,
                     current_price = 100.0 + index,
+                    price_change_percentage_24h = 1.0,
                     sparkline_in_7d = SparklineDto(prices)
                 )
             }
@@ -74,6 +76,8 @@ class CryptoRepositoryTest {
             }
             return MarketChartDto(prices = points)
         }
+
+        override suspend fun getCoinList(includePlatform: Boolean): List<CoinListItemDto> = emptyList()
     }
 
     private class FakeWalletApi(
