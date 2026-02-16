@@ -117,10 +117,11 @@ class MainViewModel(
             }
 
             result.onSuccess { analyses ->
+                val ownedAnalyses = analyses.filter { (it.balance ?: 0.0) > 0.0 }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        analyses = analyses,
+                        analyses = ownedAnalyses,
                         lastUpdated = Instant.now(),
                         error = null
                     )
@@ -213,8 +214,10 @@ class MainViewModel(
         address: String
     ): WalletAddresses {
         return when (chain) {
+            "evm" -> current.copy(ethereum = address, base = address)
             "bitcoin" -> current.copy(bitcoin = address)
             "ethereum" -> current.copy(ethereum = address)
+            "base" -> current.copy(base = address)
             "solana" -> current.copy(solana = address)
             "dogecoin" -> current.copy(dogecoin = address)
             "cardano" -> current.copy(cardano = address)
@@ -224,8 +227,10 @@ class MainViewModel(
 
     private fun chainLabel(chain: String): String {
         return when (chain) {
+            "evm" -> "EVM (Ethereum/Base)"
             "bitcoin" -> "Bitcoin"
             "ethereum" -> "Ethereum"
+            "base" -> "Base"
             "solana" -> "Solana"
             "dogecoin" -> "Dogecoin"
             "cardano" -> "Cardano"

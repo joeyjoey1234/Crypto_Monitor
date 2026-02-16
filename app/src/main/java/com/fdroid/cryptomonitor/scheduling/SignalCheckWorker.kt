@@ -29,7 +29,9 @@ class SignalCheckWorker(
             val trackedAssets = DefaultAssets.filter { walletAddresses.forChain(it.chain) != null }
             if (trackedAssets.isEmpty()) return@runCatching
 
-            val analyses = repository.analyzeAssets(trackedAssets, walletAddresses)
+            val analyses = repository
+                .analyzeAssets(trackedAssets, walletAddresses)
+                .filter { (it.balance ?: 0.0) > 0.0 }
 
             val sharedPrefs = applicationContext.getSharedPreferences("signal_alert_cache", Context.MODE_PRIVATE)
             val editor = sharedPrefs.edit()

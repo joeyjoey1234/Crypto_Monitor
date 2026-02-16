@@ -43,6 +43,7 @@ Android app MVP for monitoring crypto prices, charting recent history, reading w
 
 - Wallet lookup endpoint support depends on chain/address compatibility in Blockchair.
 - App stores per-chain addresses internally but entry is done through one auto-detect input bar.
+- Graph cards are shown only for assets where detected wallet balance is greater than zero.
 - Notification delivery on Android 13+ requires notification permission.
 - APK auto-update install requires allowing install from unknown sources for this app on Android 8+.
 - API rate limits can affect refresh cadence.

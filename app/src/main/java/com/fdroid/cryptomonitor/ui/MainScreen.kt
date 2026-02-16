@@ -145,6 +145,7 @@ private fun DashboardContent(
             val addressRows = listOf(
                 "BTC" to state.walletAddresses.bitcoin,
                 "ETH" to state.walletAddresses.ethereum,
+                "BASE" to state.walletAddresses.base,
                 "SOL" to state.walletAddresses.solana,
                 "DOGE" to state.walletAddresses.dogecoin,
                 "ADA" to state.walletAddresses.cardano
@@ -176,6 +177,20 @@ private fun DashboardContent(
         item {
             if (state.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.padding(top = 8.dp))
+            }
+        }
+        item {
+            val hasAnyAddress = state.walletAddresses.bitcoin.isNotBlank() ||
+                state.walletAddresses.ethereum.isNotBlank() ||
+                state.walletAddresses.base.isNotBlank() ||
+                state.walletAddresses.solana.isNotBlank() ||
+                state.walletAddresses.dogecoin.isNotBlank() ||
+                state.walletAddresses.cardano.isNotBlank()
+            if (hasAnyAddress && !state.isLoading && state.error == null && state.analyses.isEmpty()) {
+                Text(
+                    "No non-zero balances detected for tracked assets on saved addresses.",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
         items(state.analyses, key = { it.asset.id }) { analysis ->

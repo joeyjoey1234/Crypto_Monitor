@@ -14,7 +14,8 @@ data class CryptoAsset(
     val displayName: String,
     val chain: String,
     val decimals: Int,
-    val usesNativeBalance: Boolean = true
+    val usesNativeBalance: Boolean = true,
+    val tokenContract: String? = null
 )
 
 data class PricePoint(
@@ -40,6 +41,7 @@ data class AssetAnalysis(
 data class WalletAddresses(
     val bitcoin: String = "",
     val ethereum: String = "",
+    val base: String = "",
     val solana: String = "",
     val dogecoin: String = "",
     val cardano: String = ""
@@ -48,6 +50,7 @@ data class WalletAddresses(
         val value = when (chain) {
             "bitcoin" -> bitcoin
             "ethereum" -> ethereum
+            "base" -> base
             "solana" -> solana
             "dogecoin" -> dogecoin
             "cardano" -> cardano
@@ -63,6 +66,22 @@ val DefaultAssets = listOf(
     CryptoAsset("solana", "SOL", "Solana", "solana", 9),
     CryptoAsset("dogecoin", "DOGE", "Dogecoin", "dogecoin", 8),
     CryptoAsset("cardano", "ADA", "Cardano", "cardano", 6),
-    CryptoAsset("venice-token", "VVV", "Venice Token", "ethereum", 18, usesNativeBalance = false),
-    CryptoAsset("diem", "DIEM", "Diem", "ethereum", 18, usesNativeBalance = false)
+    CryptoAsset(
+        id = "venice-token",
+        symbol = "VVV",
+        displayName = "Venice Token",
+        chain = "base",
+        decimals = 18,
+        usesNativeBalance = false,
+        tokenContract = "0xacfe6019ed1a7dc6f7b508c02d1b04ec88cc21bf"
+    ),
+    CryptoAsset(
+        id = "diem",
+        symbol = "DIEM",
+        displayName = "Diem",
+        chain = "base",
+        decimals = 18,
+        usesNativeBalance = false,
+        tokenContract = "0xf4d97f2da56e8c3098f3a8d538db630a2606a024"
+    )
 )

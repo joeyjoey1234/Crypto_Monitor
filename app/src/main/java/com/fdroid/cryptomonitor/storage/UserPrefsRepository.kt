@@ -16,6 +16,7 @@ class UserPrefsRepository(private val context: Context) {
     private object Keys {
         val BitcoinAddress = stringPreferencesKey("wallet_address_bitcoin")
         val EthereumAddress = stringPreferencesKey("wallet_address_ethereum")
+        val BaseAddress = stringPreferencesKey("wallet_address_base")
         val SolanaAddress = stringPreferencesKey("wallet_address_solana")
         val DogecoinAddress = stringPreferencesKey("wallet_address_dogecoin")
         val CardanoAddress = stringPreferencesKey("wallet_address_cardano")
@@ -25,6 +26,7 @@ class UserPrefsRepository(private val context: Context) {
         WalletAddresses(
             bitcoin = prefs[Keys.BitcoinAddress].orEmpty(),
             ethereum = prefs[Keys.EthereumAddress].orEmpty(),
+            base = prefs[Keys.BaseAddress].orEmpty(),
             solana = prefs[Keys.SolanaAddress].orEmpty(),
             dogecoin = prefs[Keys.DogecoinAddress].orEmpty(),
             cardano = prefs[Keys.CardanoAddress].orEmpty()
@@ -35,6 +37,7 @@ class UserPrefsRepository(private val context: Context) {
         context.dataStore.edit { prefs: MutablePreferences ->
             prefs[Keys.BitcoinAddress] = addresses.bitcoin.trim()
             prefs[Keys.EthereumAddress] = addresses.ethereum.trim()
+            prefs[Keys.BaseAddress] = addresses.base.trim()
             prefs[Keys.SolanaAddress] = addresses.solana.trim()
             prefs[Keys.DogecoinAddress] = addresses.dogecoin.trim()
             prefs[Keys.CardanoAddress] = addresses.cardano.trim()
