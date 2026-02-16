@@ -5,6 +5,7 @@ Android app MVP for monitoring crypto prices, charting recent history, reading w
 ## What this build includes
 
 - Jetpack Compose UI with per-asset cards and price chart
+- Single wallet input field with auto-chain detection (BTC/ETH/SOL/DOGE/ADA)
 - Market data from CoinGecko public API
 - Wallet address balance lookup via Blockchair public API
 - 5 signal algorithms per asset:
@@ -20,6 +21,8 @@ Android app MVP for monitoring crypto prices, charting recent history, reading w
   - Checks GitHub latest release from `joeyjoey1234/Crypto_Monitor`
   - Compares release tag against current app version
   - Downloads newest APK asset and launches installer when newer
+- Settings screen includes updater actions and donation link to
+  `https://buymeacoffee.com/joejoe1234`
 
 ## Project structure
 
@@ -38,7 +41,7 @@ Android app MVP for monitoring crypto prices, charting recent history, reading w
 ## Notes and limitations
 
 - Wallet lookup endpoint support depends on chain/address compatibility in Blockchair.
-- Wallet inputs are per-chain (BTC/ETH/SOL/DOGE/ADA) and only matching chain addresses are queried.
+- App stores per-chain addresses internally but entry is done through one auto-detect input bar.
 - Notification delivery on Android 13+ requires notification permission.
 - APK auto-update install requires allowing install from unknown sources for this app on Android 8+.
 - API rate limits can affect refresh cadence.

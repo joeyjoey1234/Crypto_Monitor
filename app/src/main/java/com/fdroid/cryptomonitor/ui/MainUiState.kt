@@ -8,6 +8,8 @@ import java.time.Instant
 data class MainUiState(
     val isLoading: Boolean = false,
     val walletAddresses: WalletAddresses = WalletAddresses(),
+    val walletInput: String = "",
+    val walletStatusMessage: String? = null,
     val analyses: List<AssetAnalysis> = emptyList(),
     val lastUpdated: Instant? = null,
     val error: String? = null,

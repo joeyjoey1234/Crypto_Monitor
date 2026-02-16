@@ -9,6 +9,7 @@ import com.fdroid.cryptomonitor.data.remote.BlockchairResponse
 import com.fdroid.cryptomonitor.data.remote.CoinGeckoApi
 import com.fdroid.cryptomonitor.data.remote.MarketChartDto
 import com.fdroid.cryptomonitor.data.remote.MarketCoinDto
+import com.fdroid.cryptomonitor.data.remote.SparklineDto
 import com.fdroid.cryptomonitor.domain.SignalEngine
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -47,10 +48,18 @@ class CryptoRepositoryTest {
         override suspend fun getMarkets(
             vsCurrency: String,
             ids: String,
-            changeWindow: String
+            changeWindow: String,
+            sparkline: Boolean
         ): List<MarketCoinDto> {
             return ids.split(",").mapIndexed { index, id ->
-                MarketCoinDto(id = id, symbol = id.take(3), name = id, current_price = 100.0 + index)
+                val prices = (0 until 80).map { point -> 100.0 + point + index }
+                MarketCoinDto(
+                    id = id,
+                    symbol = id.take(3),
+                    name = id,
+                    current_price = 100.0 + index,
+                    sparkline_in_7d = SparklineDto(prices)
+                )
             }
         }
 

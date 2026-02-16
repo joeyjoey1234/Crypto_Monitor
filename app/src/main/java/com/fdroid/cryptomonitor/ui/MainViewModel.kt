@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.fdroid.cryptomonitor.data.model.DefaultAssets
+import com.fdroid.cryptomonitor.data.model.WalletAddresses
 import com.fdroid.cryptomonitor.data.repo.CryptoRepository
+import com.fdroid.cryptomonitor.domain.WalletAddressDetector
 import com.fdroid.cryptomonitor.storage.UserPrefsRepository
 import com.fdroid.cryptomonitor.update.AppUpdateChecker
 import com.fdroid.cryptomonitor.update.UpdateCheckResult
@@ -16,6 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import java.io.IOException
 import java.time.Instant
 
 class MainViewModel(
@@ -27,40 +31,69 @@ class MainViewModel(
 
     private val _uiState = MutableStateFlow(MainUiState(isLoading = true))
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
     private var refreshJob: Job? = null
+    private var lastRefreshAtMillis: Long = 0L
 
     init {
         viewModelScope.launch {
             prefsRepository.walletAddresses.distinctUntilChanged().collect { addresses ->
                 _uiState.update { it.copy(walletAddresses = addresses) }
-                refresh()
+                refresh(force = true)
             }
         }
         checkForUpdates()
     }
 
-    fun onWalletAddressChanged(chain: String, value: String) {
-        _uiState.update { state ->
-            val wallets = state.walletAddresses
-            val updated = when (chain) {
-                "bitcoin" -> wallets.copy(bitcoin = value)
-                "ethereum" -> wallets.copy(ethereum = value)
-                "solana" -> wallets.copy(solana = value)
-                "dogecoin" -> wallets.copy(dogecoin = value)
-                "cardano" -> wallets.copy(cardano = value)
-                else -> wallets
+    fun onWalletInputChanged(value: String) {
+        _uiState.update { it.copy(walletInput = value, walletStatusMessage = null) }
+    }
+
+    fun addWalletAddressFromInput() {
+        val input = _uiState.value.walletInput.trim()
+        if (input.isBlank()) {
+            _uiState.update { it.copy(walletStatusMessage = "Enter an address first") }
+            return
+        }
+
+        val chain = WalletAddressDetector.detectChain(input)
+        if (chain == null) {
+            _uiState.update {
+                it.copy(walletStatusMessage = "Unsupported or invalid address format")
             }
-            state.copy(walletAddresses = updated)
+            return
         }
-    }
 
-    fun saveWalletAddresses() {
+        val updated = updateWalletAddresses(_uiState.value.walletAddresses, chain, input)
+        if (updated == _uiState.value.walletAddresses) {
+            _uiState.update {
+                it.copy(walletStatusMessage = "Address already saved for ${chainLabel(chain)}")
+            }
+            return
+        }
+
         viewModelScope.launch {
-            prefsRepository.saveWalletAddresses(_uiState.value.walletAddresses)
+            prefsRepository.saveWalletAddresses(updated)
+            _uiState.update {
+                it.copy(
+                    walletAddresses = updated,
+                    walletInput = "",
+                    walletStatusMessage = "Saved as ${chainLabel(chain)} address"
+                )
+            }
         }
     }
 
-    fun refresh() {
+    fun refresh(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastRefreshAtMillis < 20_000L) {
+            _uiState.update {
+                it.copy(error = "Too many refreshes. Please wait a few seconds before retrying.")
+            }
+            return
+        }
+        lastRefreshAtMillis = now
+
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -85,7 +118,7 @@ class MainViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = throwable.message ?: "Failed to refresh data"
+                        error = mapRefreshError(throwable)
                     )
                 }
             }
@@ -111,6 +144,7 @@ class MainViewModel(
                         )
                     }
                 }
+
                 is UpdateCheckResult.NoUpdate -> {
                     _uiState.update {
                         it.copy(
@@ -120,6 +154,7 @@ class MainViewModel(
                         )
                     }
                 }
+
                 is UpdateCheckResult.Failed -> {
                     _uiState.update {
                         it.copy(
@@ -142,6 +177,47 @@ class MainViewModel(
                 isInstallingUpdate = false,
                 updateStatusMessage = error ?: "Installer launched"
             )
+        }
+    }
+
+    private fun mapRefreshError(error: Throwable): String {
+        return when (error) {
+            is HttpException -> {
+                if (error.code() == 429) {
+                    "Rate limit reached by the market API. Please wait 1-2 minutes and try again."
+                } else {
+                    "API request failed (${error.code()})"
+                }
+            }
+
+            is IOException -> "Network error while refreshing data"
+            else -> error.message ?: "Failed to refresh data"
+        }
+    }
+
+    private fun updateWalletAddresses(
+        current: WalletAddresses,
+        chain: String,
+        address: String
+    ): WalletAddresses {
+        return when (chain) {
+            "bitcoin" -> current.copy(bitcoin = address)
+            "ethereum" -> current.copy(ethereum = address)
+            "solana" -> current.copy(solana = address)
+            "dogecoin" -> current.copy(dogecoin = address)
+            "cardano" -> current.copy(cardano = address)
+            else -> current
+        }
+    }
+
+    private fun chainLabel(chain: String): String {
+        return when (chain) {
+            "bitcoin" -> "Bitcoin"
+            "ethereum" -> "Ethereum"
+            "solana" -> "Solana"
+            "dogecoin" -> "Dogecoin"
+            "cardano" -> "Cardano"
+            else -> chain
         }
     }
 

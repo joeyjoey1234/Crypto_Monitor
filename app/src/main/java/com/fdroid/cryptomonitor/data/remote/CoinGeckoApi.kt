@@ -10,7 +10,8 @@ interface CoinGeckoApi {
     suspend fun getMarkets(
         @Query("vs_currency") vsCurrency: String = "usd",
         @Query("ids") ids: String,
-        @Query("price_change_percentage") changeWindow: String = "24h"
+        @Query("price_change_percentage") changeWindow: String = "24h",
+        @Query("sparkline") sparkline: Boolean = true
     ): List<MarketCoinDto>
 
     @GET("api/v3/coins/{id}/market_chart")
@@ -26,7 +27,12 @@ data class MarketCoinDto(
     val id: String,
     val symbol: String,
     val name: String,
-    val current_price: Double
+    val current_price: Double,
+    val sparkline_in_7d: SparklineDto?
+)
+
+data class SparklineDto(
+    val price: List<Double>
 )
 
 data class MarketChartDto(
