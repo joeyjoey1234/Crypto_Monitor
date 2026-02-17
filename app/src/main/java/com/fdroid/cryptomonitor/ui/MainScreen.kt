@@ -97,6 +97,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 formatter = formatter,
                 onWalletInputChanged = viewModel::onWalletInputChanged,
                 onAddAddress = viewModel::addWalletAddressFromInput,
+                onRemoveAddress = viewModel::removeWalletAddress,
                 onRefresh = { viewModel.refresh(force = false) }
             )
         }
@@ -110,6 +111,7 @@ private fun DashboardContent(
     formatter: DateTimeFormatter,
     onWalletInputChanged: (String) -> Unit,
     onAddAddress: () -> Unit,
+    onRemoveAddress: (String) -> Unit,
     onRefresh: () -> Unit
 ) {
     val currency = NumberFormat.getCurrencyInstance(Locale.US)
@@ -165,18 +167,34 @@ private fun DashboardContent(
         }
         item {
             val addressRows = listOf(
-                "BTC" to state.walletAddresses.bitcoin,
-                "ETH" to state.walletAddresses.ethereum,
-                "BASE" to state.walletAddresses.base,
-                "SOL" to state.walletAddresses.solana,
-                "DOGE" to state.walletAddresses.dogecoin,
-                "ADA" to state.walletAddresses.cardano
-            ).filter { it.second.isNotBlank() }
+                Triple("bitcoin", "BTC", state.walletAddresses.bitcoin),
+                Triple("ethereum", "ETH", state.walletAddresses.ethereum),
+                Triple("base", "BASE", state.walletAddresses.base),
+                Triple("solana", "SOL", state.walletAddresses.solana),
+                Triple("dogecoin", "DOGE", state.walletAddresses.dogecoin),
+                Triple("cardano", "ADA", state.walletAddresses.cardano)
+            ).filter { it.third.isNotBlank() }
 
             if (addressRows.isNotEmpty()) {
                 Text("Saved wallet addresses:", style = MaterialTheme.typography.titleSmall)
-                addressRows.forEach { (symbol, address) ->
-                    Text("$symbol: $address", style = MaterialTheme.typography.bodySmall)
+                addressRows.forEach { (chain, symbol, address) ->
+                    val compactAddress = if (address.length > 24) {
+                        "${address.take(10)}...${address.takeLast(8)}"
+                    } else {
+                        address
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "$symbol: $compactAddress",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        TextButton(onClick = { onRemoveAddress(chain) }) {
+                            Text("Delete")
+                        }
+                    }
                 }
             } else if (!state.isLoading) {
                 Text(

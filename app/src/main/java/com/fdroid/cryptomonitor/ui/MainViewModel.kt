@@ -83,6 +83,31 @@ class MainViewModel(
         }
     }
 
+    fun removeWalletAddress(chain: String) {
+        val current = _uiState.value.walletAddresses
+        val updated = when (chain) {
+            "evm" -> current.copy(ethereum = "", base = "")
+            "bitcoin" -> current.copy(bitcoin = "")
+            "ethereum" -> current.copy(ethereum = "")
+            "base" -> current.copy(base = "")
+            "solana" -> current.copy(solana = "")
+            "dogecoin" -> current.copy(dogecoin = "")
+            "cardano" -> current.copy(cardano = "")
+            else -> current
+        }
+        if (updated == current) return
+
+        viewModelScope.launch {
+            prefsRepository.saveWalletAddresses(updated)
+            _uiState.update {
+                it.copy(
+                    walletAddresses = updated,
+                    walletStatusMessage = "Removed ${chainLabel(chain)} address"
+                )
+            }
+        }
+    }
+
     fun refresh(force: Boolean = false) {
         val now = System.currentTimeMillis()
         if (!force && now - lastRefreshAtMillis < 20_000L) {
