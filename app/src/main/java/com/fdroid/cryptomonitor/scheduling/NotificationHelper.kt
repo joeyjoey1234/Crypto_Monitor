@@ -28,13 +28,28 @@ object NotificationHelper {
         manager.createNotificationChannel(channel)
     }
 
-    fun notifySignal(context: Context, notificationId: Int, title: String, message: String) {
+    fun canPostNotifications(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            return
+            return false
         }
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            return false
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = manager.getNotificationChannel(CHANNEL_ID)
+            if (channel != null && channel.importance == NotificationManager.IMPORTANCE_NONE) {
+                return false
+            }
+        }
+        return true
+    }
+
+    fun notifySignal(context: Context, notificationId: Int, title: String, message: String): Boolean {
+        if (!canPostNotifications(context)) return false
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_more)
@@ -45,5 +60,6 @@ object NotificationHelper {
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId, notification)
+        return true
     }
 }

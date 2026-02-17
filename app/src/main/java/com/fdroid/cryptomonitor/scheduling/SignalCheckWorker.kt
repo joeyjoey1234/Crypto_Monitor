@@ -40,17 +40,21 @@ class SignalCheckWorker(
                 val key = "${analysis.asset.id}_action"
                 val previous = sharedPrefs.getString(key, TradeAction.HOLD.name)
 
-                if (action != TradeAction.HOLD && previous != action.name) {
+                if (SignalAlertPolicy.shouldAttemptNotification(action, previous)) {
                     val title = "${analysis.asset.symbol}: ${action.name} signal"
                     val message = "${analysis.asset.displayName} flagged ${action.name} by multi-algorithm vote."
-                    NotificationHelper.notifySignal(
+                    val delivered = NotificationHelper.notifySignal(
                         context = applicationContext,
                         notificationId = analysis.asset.id.hashCode(),
                         title = title,
                         message = message
                     )
+                    if (SignalAlertPolicy.shouldCacheAction(action, delivered)) {
+                        editor.putString(key, action.name)
+                    }
+                } else if (SignalAlertPolicy.shouldCacheAction(action, delivered = false)) {
+                    editor.putString(key, action.name)
                 }
-                editor.putString(key, action.name)
             }
 
             editor.apply()

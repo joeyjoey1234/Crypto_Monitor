@@ -2,6 +2,7 @@ package com.fdroid.cryptomonitor.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fdroid.cryptomonitor.ui.components.AssetCard
+import com.fdroid.cryptomonitor.scheduling.NotificationHelper
 import com.fdroid.cryptomonitor.update.ApkUpdateInstaller
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -86,6 +88,20 @@ fun MainScreen(viewModel: MainViewModel) {
                         Uri.parse("https://buymeacoffee.com/joejoe1234")
                     )
                     context.startActivity(donateIntent)
+                },
+                onSendTestNotification = {
+                    val sent = NotificationHelper.notifySignal(
+                        context = context,
+                        notificationId = "manual_test_notification".hashCode(),
+                        title = "Crypto Monitor Test",
+                        message = "Test alert delivered. Notifications are working."
+                    )
+                    val text = if (sent) {
+                        "Test notification sent"
+                    } else {
+                        "Notifications disabled or permission denied"
+                    }
+                    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
                 }
             )
         } else {
@@ -245,7 +261,8 @@ private fun SettingsContent(
     state: MainUiState,
     onCheckUpdates: () -> Unit,
     onInstall: () -> Unit,
-    onDonate: () -> Unit
+    onDonate: () -> Unit,
+    onSendTestNotification: () -> Unit
 ) {
     LazyColumn(
         modifier = modifier.padding(horizontal = 16.dp),
@@ -277,6 +294,14 @@ private fun SettingsContent(
         item {
             state.availableUpdate?.let { update ->
                 Text("Latest release: ${update.releaseName}", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        item {
+            Text("Notifications", style = MaterialTheme.typography.titleMedium)
+        }
+        item {
+            Button(onClick = onSendTestNotification) {
+                Text("Send Test Notification")
             }
         }
         item {

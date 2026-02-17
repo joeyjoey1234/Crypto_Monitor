@@ -1,0 +1,94 @@
+name: Build And Release APK
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Grant execute permission for Gradle wrapper
+        run: chmod +x gradlew
+
+      - name: Build and test
+        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
+
+      - name: Prepare APK metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          METADATA_FILE="app/build/outputs/apk/release/output-metadata.json"
+          VERSION_NAME="$(awk -F'"' '/"versionName"/ {print $4; exit}' "$METADATA_FILE")"
+          VERSION_CODE="$(awk -F': ' '/"versionCode"/ {gsub(/,/, "", $2); print $2; exit}' "$METADATA_FILE")"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          APK_NAME="CryptoMonitor-v${VERSION_NAME}-${SHORT_SHA}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          {
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
+            echo "apk_name=$APK_NAME"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.apk_name }}
+          path: ${{ steps.meta.outputs.apk_name }}
+          if-no-files-found: error
+
+      - name: Publish GitHub release APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_TAG_BUILD: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_NAME="${{ steps.meta.outputs.apk_name }}"
+          VERSION_NAME="${{ steps.meta.outputs.version_name }}"
+          VERSION_CODE="${{ steps.meta.outputs.version_code }}"
+
+          if [[ "$IS_TAG_BUILD" == "true" ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            RELEASE_TITLE="$RELEASE_TAG"
+            RELEASE_NOTES="Automated release build for version $VERSION_NAME ($VERSION_CODE)."
+            if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release upload "$RELEASE_TAG" "$APK_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+            else
+              gh release create "$RELEASE_TAG" "$APK_NAME" \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "$RELEASE_TITLE" \
+                --notes "$RELEASE_NOTES"
+            fi
+          else
+            RELEASE_TAG="build-${GITHUB_RUN_ID}"
+            RELEASE_TITLE="CI Build ${GITHUB_RUN_NUMBER} (${GITHUB_SHA::7})"
+            RELEASE_NOTES="Automated APK from successful main build for commit $GITHUB_SHA."
+            gh release create "$RELEASE_TAG" "$APK_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TITLE" \
+              --notes "$RELEASE_NOTES" \
+              --prerelease
+          fi
